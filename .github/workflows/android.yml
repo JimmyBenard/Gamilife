@@ -22,6 +22,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
       - name: Run unit tests and assemble APK
         run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
+      - name: Verify APK signature and application identity
+        run: |
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort | tail -n 1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort | tail -n 1)"
+          "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
+          "$AAPT" dump badging app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.gamilife.app'.*versionCode='1'.*versionName='0.1.0'"
       - name: Prepare standalone APK
         run: cp app/build/outputs/apk/debug/app-debug.apk Gamilife-0.1.0.apk
       - name: Publish APK artifact
