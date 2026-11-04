@@ -3,6 +3,7 @@
 package com.gamilife.app
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,9 +20,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.gamilife.app.data.*
 import com.gamilife.app.domain.*
 
@@ -34,13 +39,16 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
 @Composable fun GamilifeApp(game: GameSnapshot, vm: GameViewModel) {
     var screen by rememberSaveable { mutableStateOf(Screen.CHARACTER) }
     var selectedSkill by remember { mutableStateOf<SkillEntity?>(null) }; var selectedMonster by remember { mutableStateOf<MonsterEntity?>(null) }
-    Scaffold(
-        topBar = { TopAppBar(title={ Column { Text("GAMILIFE",fontWeight=FontWeight.Black); Text("V0.1.0 · RPG de la vie réelle",style=MaterialTheme.typography.labelSmall) } }, actions={ IconButton({ screen=Screen.ADMIN }) { Icon(Icons.Default.Settings,"Administration") } }) },
-        bottomBar = { NavigationBar { listOf(Screen.CHARACTER,Screen.SKILLS,Screen.COMBAT,Screen.INVENTORY,Screen.BESTIARY).forEach { s -> NavigationBarItem(selected=screen==s,onClick={screen=s},icon={Icon(s.icon,null)},label={Text(s.label)} ) } } },
-        snackbarHost = { SnackbarHost(remember { SnackbarHostState() }) }
-    ) { padding -> Box(Modifier.fillMaxSize().padding(padding)) {
+    Box(Modifier.fillMaxSize()) {
+        if (screen == Screen.CHARACTER) {
+            CharacterView(game, onNavigate = { screen = it }, onEquipment = { screen = Screen.EQUIPMENT })
+        } else Scaffold(
+            topBar = { TopAppBar(title={ Column { Text("GAMILIFE",fontWeight=FontWeight.Black); Text("V0.1.1 · RPG de la vie réelle",style=MaterialTheme.typography.labelSmall) } }, actions={ IconButton({ screen=Screen.ADMIN }) { Icon(Icons.Default.Settings,"Administration") } }) },
+            bottomBar = { NavigationBar { listOf(Screen.CHARACTER,Screen.SKILLS,Screen.COMBAT,Screen.INVENTORY,Screen.BESTIARY).forEach { s -> NavigationBarItem(selected=screen==s,onClick={screen=s},icon={Icon(s.icon,null)},label={Text(s.label)} ) } } },
+            snackbarHost = { SnackbarHost(remember { SnackbarHostState() }) }
+        ) { padding -> Box(Modifier.fillMaxSize().padding(padding)) {
         when(screen) {
-            Screen.CHARACTER -> CharacterView(game,{screen=Screen.INVENTORY},{screen=Screen.EQUIPMENT})
+            Screen.CHARACTER -> Unit
             Screen.SKILLS -> SkillsView(game.skills,{selectedSkill=it},{vm.validate(it.id)})
             Screen.DUNGEONS -> DungeonsView(game.dungeons,game.monsters,{ screen=Screen.COMBAT; selectedMonster=it })
             Screen.BESTIARY -> BestiaryView(game.monsters,{selectedMonster=it})
@@ -52,20 +60,52 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
             Screen.FORGE -> ForgeView()
             Screen.ADMIN -> AdminView(game,{screen=Screen.EFFECTS},{vm.irregular(it.id)})
         }
+        } }
         vm.message?.let { text -> AlertDialog(onDismissRequest=vm::dismiss,title={Text("Gamilife")},text={Text(text)},confirmButton={TextButton(vm::dismiss){Text("Compris")}}) }
         selectedSkill?.let { SkillDetail(it,onBack={selectedSkill=null},onValidate={vm.validate(it.id)}) }
         selectedMonster?.let { MonsterDetail(it,onBack={selectedMonster=null},onFight={screen=Screen.COMBAT; selectedMonster=it}) }
-    } }
-}
-
-@Composable private fun CharacterView(g: GameSnapshot, inventory:()->Unit,equipment:()->Unit) { val p=g.player ?: return Loading(); val eq=g.items.filter{it.equipped}; val bonusAtk=eq.sumOf{it.atkBonus}; val bonusHp=eq.sumOf{it.hpBonus};
-    Page("Personnage", "Ta fiche et tes statistiques finales") {
-        HeroCard("${p.name} · Niv. ${p.level}","Rang ${p.rank} · Aventurier de la vie réelle",Icons.Default.Person,Color(0xFFC6A0F6))
-        HpBar(p.hp,p.maxHp); XpBar(p.xp, ProgressionRules.xpToNext(p.level,Rank.valueOf(p.rank)))
-        Section("Statistiques") { StatRow("PV",p.maxHp,bonusHp,p.maxHp+bonusHp); StatRow("ATK",p.atk,bonusAtk,p.atk+bonusAtk); StatRow("CC",p.crit,0,p.crit); StatRow("DC",p.critDamage,0,p.critDamage); StatRow("PRE",p.accuracy,0,p.accuracy); StatRow("AME / RME",p.ame,p.rme,p.ame+p.rme) }
-        Section("Équipements portés") { if(eq.isEmpty()) Text("Aucun équipement") else eq.forEach { ItemLine(it) }; Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){ Button(inventory,Modifier.weight(1f)){Text("Inventaire")}; OutlinedButton(equipment,Modifier.weight(1f)){Text("Équipement")} } }
     }
 }
+
+@Composable private fun CharacterView(g: GameSnapshot, onNavigate:(Screen)->Unit, onEquipment:()->Unit) {
+    val p = g.player ?: return Loading()
+    val equipped = g.items.filter { it.equipped }
+    val bonusAtk = equipped.sumOf { it.atkBonus }
+    val bonusHp = equipped.sumOf { it.hpBonus }
+    val maxXp = ProgressionRules.xpToNext(p.level, Rank.valueOf(p.rank)).coerceAtLeast(1)
+    val xpPercent = p.xp * 100 / maxXp
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF101A2C))) {
+        val boardWidth = maxWidth
+        val boardHeight = boardWidth * 1.5f
+        Box(Modifier.fillMaxWidth().height(boardHeight)) {
+            Image(
+                painter = painterResource(R.drawable.gamilife_character_reference),
+                contentDescription = "Fiche personnage Gamilife",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds
+            )
+            CharacterValue("${p.name}", Modifier.offset(x=boardWidth * .405f, y=boardHeight * .112f).width(boardWidth * .51f).height(boardHeight * .040f), 19.sp)
+            CharacterValue("${p.level}", Modifier.offset(x=boardWidth * .453f, y=boardHeight * .157f).width(boardWidth * .12f).height(boardHeight * .032f), 17.sp)
+            CharacterValue("$xpPercent %", Modifier.offset(x=boardWidth * .823f, y=boardHeight * .195f).width(boardWidth * .13f).height(boardHeight * .030f), 14.sp)
+            CharacterValue("${p.hp} / ${p.maxHp + bonusHp}", Modifier.offset(x=boardWidth * .786f, y=boardHeight * .245f).width(boardWidth * .15f).height(boardHeight * .034f), 15.sp)
+            CharacterValue("${p.atk + bonusAtk}", Modifier.offset(x=boardWidth * .316f, y=boardHeight * .428f).width(boardWidth * .08f).height(boardHeight * .028f), 15.sp)
+            CharacterValue("${p.crit} %", Modifier.offset(x=boardWidth * .313f, y=boardHeight * .471f).width(boardWidth * .10f).height(boardHeight * .028f), 14.sp)
+            CharacterValue("${p.critDamage} %", Modifier.offset(x=boardWidth * .313f, y=boardHeight * .514f).width(boardWidth * .10f).height(boardHeight * .028f), 14.sp)
+            CharacterValue("${p.accuracy} %", Modifier.offset(x=boardWidth * .313f, y=boardHeight * .557f).width(boardWidth * .10f).height(boardHeight * .028f), 14.sp)
+            CharacterValue("—", Modifier.offset(x=boardWidth * .317f, y=boardHeight * .653f).width(boardWidth * .08f).height(boardHeight * .028f), 15.sp)
+            CharacterValue("—", Modifier.offset(x=boardWidth * .317f, y=boardHeight * .696f).width(boardWidth * .08f).height(boardHeight * .028f), 15.sp)
+            CharacterValue("—", Modifier.offset(x=boardWidth * .317f, y=boardHeight * .739f).width(boardWidth * .08f).height(boardHeight * .028f), 15.sp)
+            CharacterValue("—", Modifier.offset(x=boardWidth * .317f, y=boardHeight * .782f).width(boardWidth * .08f).height(boardHeight * .028f), 15.sp)
+            Box(Modifier.offset(x=boardWidth * .42f, y=boardHeight * .36f).width(boardWidth * .55f).height(boardHeight * .49f).clickable(onClick=onEquipment))
+            listOf(Screen.CHARACTER,Screen.SKILLS,Screen.DUNGEONS,Screen.INVENTORY,Screen.BESTIARY,Screen.COLLECTION,Screen.FORGE).forEachIndexed { index, target ->
+                Box(Modifier.offset(x=boardWidth * (.015f + index * .14f), y=boardHeight * .884f).width(boardWidth * .135f).height(boardHeight * .105f).clickable { onNavigate(target) })
+            }
+            Box(Modifier.offset(x=boardWidth * .905f, y=boardHeight * .022f).width(boardWidth * .075f).height(boardHeight * .065f).clickable { onNavigate(Screen.ADMIN) })
+        }
+    }
+}
+
+@Composable private fun CharacterValue(value:String, modifier:Modifier, size:androidx.compose.ui.unit.TextUnit) = Box(modifier, contentAlignment=Alignment.CenterEnd) { Text(value, color=Color(0xFFF7F3E6), fontSize=size, fontWeight=FontWeight.Black, textAlign=TextAlign.End, maxLines=1) }
 @Composable private fun SkillsView(skills:List<SkillEntity>,detail:(SkillEntity)->Unit,validate:(SkillEntity)->Unit) = Page("Compétences","Accomplis tes actions pour devenir plus fort") { if(skills.isEmpty()) Text("Aucune compétence") else skills.forEach { s -> Card(Modifier.fillMaxWidth().padding(vertical=4.dp).clickable{detail(s)}) { Column(Modifier.padding(14.dp)) { Row(verticalAlignment=Alignment.CenterVertically){ RankBadge(s.rank); Column(Modifier.padding(start=10.dp).weight(1f)){Text(s.name,fontWeight=FontWeight.Bold);Text(s.kind.lowercase().replaceFirstChar{it.uppercase()},style=MaterialTheme.typography.labelSmall)}; IconButton({detail(s)}){Icon(Icons.Default.ChevronRight,null)} }; XpBar(s.xp,ProgressionRules.xpToNext(s.level,Rank.valueOf(s.rank))); Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Text("Niv. ${s.level} · +${s.rewardXp} XP",style=MaterialTheme.typography.labelMedium); Button({validate(s)}){Text("Valider")}} } } } }
 @Composable private fun DungeonsView(dungeons:List<DungeonEntity>, monsters:List<MonsterEntity>,fight:(MonsterEntity)->Unit) = Page("Donjons","Défis de la vie réelle, affrontements successifs") { dungeons.forEach { d -> HeroCard(d.name,"Difficulté ${d.difficulty} · Étape ${d.currentStep+1} · ${if(d.complete) "Terminé" else "Disponible"}",Icons.Default.Castle,Color(0xFFFF8A65)); Text(d.description); Spacer(Modifier.height(6.dp)); monsters.forEachIndexed{ index,m -> ListItem(headlineContent={Text("${index+1}. ${m.name}")},supportingContent={Text("PV ${m.hp}/${m.maxHp} · Rang ${m.rank}")},trailingContent={FilledTonalButton({fight(m)}){Text("Combattre")}}) } } }
 @Composable private fun BestiaryView(monsters:List<MonsterEntity>,detail:(MonsterEntity)->Unit) = Page("Bestiaire","Ennemis locaux administrables") { monsters.forEach { m -> Card(Modifier.fillMaxWidth().padding(vertical=4.dp).clickable{detail(m)}) { Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){ Icon(Icons.Default.Pets,null,Modifier.size(38.dp),tint=Color(0xFFFFC857)); Column(Modifier.weight(1f).padding(start=12.dp)){Text(m.name,fontWeight=FontWeight.Bold);Text("Rang ${m.rank} · niveau ${m.level} · ${m.hp}/${m.maxHp} PV")};Icon(Icons.Default.ChevronRight,null) } } } }

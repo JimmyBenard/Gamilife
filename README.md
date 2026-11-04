@@ -1,4 +1,4 @@
-# Gamilife 0.1.0
+# Gamilife 0.1.1
 
 Application Android hors ligne qui gamifie les actions réelles : valider une compétence, obtenir de l'expérience, combattre, gagner un butin et équiper le personnage.
 
@@ -8,12 +8,14 @@ Prérequis : JDK 17, Android SDK Platform 35 et Build Tools 35, connexion aux d�
 
 ```bash
 ./gradlew testDebugUnitTest assembleDebug
-cp app/build/outputs/apk/debug/app-debug.apk Gamilife-0.1.0.apk
+cp app/build/outputs/apk/debug/app-debug.apk Gamilife-0.1.1.apk
 ```
 
 L'APK de débogage est signé avec la clé de débogage standard Android et s'installe indépendamment.
 
-## Fonctionnalités V0.1.0
+## Fonctionnalités V0.1.1
+
+- L'onglet Personnage utilise la fiche visuelle fournie : valeurs de profil et statistiques réelles superposées, zones Équipements et barre RPG directement cliquables.
 
 - Navigation mobile vers Personnage, Compétences, Donjons, Bestiaire, Combat, Inventaire, Équipement, Effets, Collection, Forge et Administration.
 - Room/SQLite persistante, initialisée une seule fois avec des données de démonstration.
