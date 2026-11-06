@@ -6,6 +6,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -50,7 +51,7 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
         if (screen == Screen.CHARACTER) {
             CharacterView(game, onNavigate = { screen = it }, onEquipment = { screen = Screen.EQUIPMENT })
         } else Scaffold(
-            topBar = { TopAppBar(title={ Column { Text("GAMILIFE",fontWeight=FontWeight.Black); Text("V0.1.4 · RPG de la vie réelle",style=MaterialTheme.typography.labelSmall) } }, actions={ IconButton({ screen=Screen.SETTINGS }) { Icon(Icons.Default.Settings,"Paramètres") } }) },
+            topBar = { TopAppBar(title={ Column { Text("GAMILIFE",fontWeight=FontWeight.Black); Text("V0.1.5 · RPG de la vie réelle",style=MaterialTheme.typography.labelSmall) } }, actions={ IconButton({ screen=Screen.SETTINGS }) { Icon(Icons.Default.Settings,"Paramètres") } }) },
             bottomBar = { GameNavigationBar(screen) { screen = it } },
             snackbarHost = { SnackbarHost(remember { SnackbarHostState() }) }
         ) { padding -> Box(Modifier.fillMaxSize().padding(padding)) {
@@ -123,41 +124,60 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
     val equipped = g.items.filter { it.equipped }
     val bonusAtk = equipped.sumOf { it.atkBonus }
     val bonusHp = equipped.sumOf { it.hpBonus }
+    val maxHp = p.maxHp + bonusHp
     val maxXp = ProgressionRules.xpToNext(p.level, Rank.valueOf(p.rank)).coerceAtLeast(1)
-    val xpPercent = p.xp * 100 / maxXp
-    BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF101A2C))) {
-        val boardWidth = maxWidth
-        val boardHeight = boardWidth * 1.298f
-        var loaded by remember { mutableStateOf(false) }
-        LaunchedEffect(Unit) { loaded = true }
-        val entryScale by animateFloatAsState(if (loaded) 1f else .965f, tween(420), label="characterEntry")
-        val entryAlpha by animateFloatAsState(if (loaded) 1f else 0f, tween(320), label="characterFade")
-        Box(Modifier.fillMaxWidth().height(boardHeight).graphicsLayer { scaleX=entryScale; scaleY=entryScale; alpha=entryAlpha }) {
-            Image(
-                painter = painterResource(R.drawable.gamilife_character_reference),
-                contentDescription = "Fiche personnage Gamilife",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds
-            )
-            CharacterValue("${p.name}", Modifier.offset(x=boardWidth * .405f, y=boardHeight * .112f).width(boardWidth * .51f).height(boardHeight * .040f), 19.sp)
-            CharacterValue("${p.level}", Modifier.offset(x=boardWidth * .453f, y=boardHeight * .157f).width(boardWidth * .12f).height(boardHeight * .032f), 17.sp)
-            CharacterValue("$xpPercent %", Modifier.offset(x=boardWidth * .823f, y=boardHeight * .195f).width(boardWidth * .13f).height(boardHeight * .030f), 14.sp)
-            CharacterValue("${p.hp} / ${p.maxHp + bonusHp}", Modifier.offset(x=boardWidth * .786f, y=boardHeight * .245f).width(boardWidth * .15f).height(boardHeight * .034f), 15.sp)
-            CharacterValue("${p.atk + bonusAtk}", Modifier.offset(x=boardWidth * .316f, y=boardHeight * .428f).width(boardWidth * .08f).height(boardHeight * .028f), 15.sp)
-            CharacterValue("${p.crit} %", Modifier.offset(x=boardWidth * .313f, y=boardHeight * .471f).width(boardWidth * .10f).height(boardHeight * .028f), 14.sp)
-            CharacterValue("${p.critDamage} %", Modifier.offset(x=boardWidth * .313f, y=boardHeight * .514f).width(boardWidth * .10f).height(boardHeight * .028f), 14.sp)
-            CharacterValue("${p.accuracy} %", Modifier.offset(x=boardWidth * .313f, y=boardHeight * .557f).width(boardWidth * .10f).height(boardHeight * .028f), 14.sp)
-            CharacterValue("—", Modifier.offset(x=boardWidth * .317f, y=boardHeight * .653f).width(boardWidth * .08f).height(boardHeight * .028f), 15.sp)
-            CharacterValue("—", Modifier.offset(x=boardWidth * .317f, y=boardHeight * .696f).width(boardWidth * .08f).height(boardHeight * .028f), 15.sp)
-            CharacterValue("—", Modifier.offset(x=boardWidth * .317f, y=boardHeight * .739f).width(boardWidth * .08f).height(boardHeight * .028f), 15.sp)
-            CharacterValue("—", Modifier.offset(x=boardWidth * .317f, y=boardHeight * .782f).width(boardWidth * .08f).height(boardHeight * .028f), 15.sp)
-            Box(Modifier.offset(x=boardWidth * .42f, y=boardHeight * .36f).width(boardWidth * .55f).height(boardHeight * .57f).clickable(onClick=onEquipment))
-            Box(Modifier.offset(x=boardWidth * .905f, y=boardHeight * .022f).width(boardWidth * .075f).height(boardHeight * .065f).clickable { onNavigate(Screen.SETTINGS) })
+    var revealed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { revealed = true }
+    val entry by animateFloatAsState(if(revealed) 1f else .96f, tween(360), label="heroEntry")
+    val alpha by animateFloatAsState(if(revealed) 1f else 0f, tween(280), label="heroFade")
+    LazyColumn(
+        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF07101E),Color(0xFF162C49),Color(0xFF091423)))),
+        contentPadding=PaddingValues(start=12.dp,end=12.dp,top=14.dp,bottom=96.dp), verticalArrangement=Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) { Text("GAMILIFE",color=Color(0xFFFFD879),fontSize=13.sp,fontWeight=FontWeight.Black,letterSpacing=1.sp); Text("FICHE DU HÉROS",fontSize=24.sp,fontWeight=FontWeight.Black) }
+                IconButton({onNavigate(Screen.SETTINGS)},Modifier.border(1.dp,Color(0xFFE7BD63),RoundedCornerShape(12.dp)).background(Color(0xFF152842),RoundedCornerShape(12.dp))) { Icon(Icons.Default.Settings,"Paramètres",tint=Color(0xFFFFD879)) }
+            }
+        }
+        item {
+            GamingPanel(Modifier.graphicsLayer { scaleX=entry; scaleY=entry; this.alpha=alpha }) {
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Box(Modifier.size(82.dp).border(2.dp,Color(0xFFFFCD6A),RoundedCornerShape(25.dp)).background(Brush.radialGradient(listOf(Color(0xFF3C6CA3),Color(0xFF0D1C33))),RoundedCornerShape(25.dp)),contentAlignment=Alignment.Center) { Icon(Icons.Default.Person,null,Modifier.size(52.dp),tint=Color(0xFFC7D8F4)) }
+                    Column(Modifier.padding(start=12.dp).weight(1f)) {
+                        Text(p.name,fontSize=21.sp,fontWeight=FontWeight.Black,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        Row(verticalAlignment=Alignment.CenterVertically) { RankBadge(p.rank); Spacer(Modifier.width(7.dp)); Text("Niveau ${p.level}",color=Color(0xFFBFD2F5),fontWeight=FontWeight.Bold) }
+                        Spacer(Modifier.height(7.dp)); Text("EXP  ${p.xp} / $maxXp",style=MaterialTheme.typography.labelSmall,color=Color(0xFFD8E5FB)); LinearProgressIndicator(progress={p.xp.toFloat().coerceAtMost(maxXp.toFloat())/maxXp},Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(8.dp)),color=Color(0xFFFFC857),trackColor=Color(0xFF263D5B))
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("PV  ${p.hp} / $maxHp",fontWeight=FontWeight.Black,color=Color(0xFFFFD6DB)); LinearProgressIndicator(progress={if(maxHp==0) 0f else p.hp.toFloat()/maxHp},Modifier.fillMaxWidth().height(11.dp).clip(RoundedCornerShape(10.dp)),color=Color(0xFFFF596D),trackColor=Color(0xFF54233A))
+            }
+        }
+        item { GamingTitle("STATISTIQUES",Icons.Default.BarChart) }
+        item {
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(9.dp)) {
+                GamingPanel(Modifier.weight(1f)) { Text("OFFENSIVES",color=Color(0xFFFFC857),fontWeight=FontWeight.Black); CharacterStat("ATK",p.atk,bonusAtk); CharacterStat("CC",p.crit,0,"%"); CharacterStat("DC",p.critDamage,0,"%"); CharacterStat("PRE",p.accuracy,0,"%") }
+                GamingPanel(Modifier.weight(1f)) { Text("DÉFENSIVES",color=Color(0xFF8BD3DD),fontWeight=FontWeight.Black); CharacterStat("DEF",0,0); CharacterStat("RC",0,0,"%"); CharacterStat("RDC",0,0,"%"); CharacterStat("ESQ",0,0,"%") }
+            }
+        }
+        item { GamingTitle("ÉQUIPEMENTS",Icons.Default.Shield) }
+        item {
+            GamingPanel {
+                Text("Bonus équipés : ATK +$bonusAtk · PV max +$bonusHp",style=MaterialTheme.typography.labelSmall,color=Color(0xFFC8D9F4))
+                Spacer(Modifier.height(9.dp))
+                val slots=listOf("Chapeau" to "CHAPEAU","Masque" to "MASQUE","Arme principale" to "ARME","Arme secondaire" to "SECONDAIRE","Gants" to "GANTS","Chaussures" to "CHAUSSURES","Costume" to "ARMURE","Anneau" to "ANNEAU","Bracelet" to "BRACELET","Collier" to "COLLIER","Talisman" to "TALISMAN")
+                slots.chunked(2).forEach { row -> Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) { row.forEach { (label,slot) -> val item=equipped.firstOrNull { it.slot==slot || (slot=="ARME" && it.slot=="ARME") }; EquipmentTile(label,item?.name,Modifier.weight(1f),onEquipment) }; if(row.size==1) Spacer(Modifier.weight(1f)) }; Spacer(Modifier.height(8.dp)) }
+                OutlinedButton(onEquipment,Modifier.fillMaxWidth(),border=BorderStroke(1.dp,Brush.linearGradient(listOf(Color(0xFFFFD36D),Color(0xFF607EAF))))) { Icon(Icons.Default.Inventory2,null,tint=Color(0xFFFFD36D)); Spacer(Modifier.width(8.dp)); Text("GÉRER L’ÉQUIPEMENT",fontWeight=FontWeight.Black) }
+            }
         }
     }
 }
 
-@Composable private fun CharacterValue(value:String, modifier:Modifier, size:androidx.compose.ui.unit.TextUnit) = Box(modifier, contentAlignment=Alignment.CenterEnd) { Text(value, color=Color(0xFFF7F3E6), fontSize=size, fontWeight=FontWeight.Black, textAlign=TextAlign.End, maxLines=1) }
+@Composable private fun GamingPanel(modifier:Modifier=Modifier,content:@Composable ColumnScope.()->Unit) = Column(modifier.border(1.dp,Color(0xFF6387BC),RoundedCornerShape(18.dp)).background(Brush.verticalGradient(listOf(Color(0xEE1B3557),Color(0xEE0D1C32))),RoundedCornerShape(18.dp)).padding(12.dp),content=content)
+@Composable private fun GamingTitle(text:String,icon:androidx.compose.ui.graphics.vector.ImageVector) = Row(verticalAlignment=Alignment.CenterVertically) { Icon(icon,null,tint=Color(0xFFFFC857)); Spacer(Modifier.width(7.dp)); Text(text,fontWeight=FontWeight.Black,fontSize=15.sp,color=Color(0xFFFFE0A0),letterSpacing=1.sp); Spacer(Modifier.width(8.dp)); Box(Modifier.weight(1f).height(1.dp).background(Color(0xFF6B86B2))) }
+@Composable private fun CharacterStat(label:String,base:Int,bonus:Int,suffix:String="") = Row(Modifier.fillMaxWidth().padding(top=7.dp),horizontalArrangement=Arrangement.SpaceBetween) { Text(label,fontWeight=FontWeight.Bold,color=Color(0xFFDCE8FA)); Text("${base+bonus}$suffix",fontWeight=FontWeight.Black); if(bonus!=0) Text("+$bonus",fontSize=10.sp,color=Color(0xFF7DDF9D)) }
+@Composable private fun EquipmentTile(label:String,item:String?,modifier:Modifier,onClick:()->Unit) { val source=remember { MutableInteractionSource() }; val pressed by source.collectIsPressedAsState(); val scale by animateFloatAsState(if(pressed).94f else 1f,tween(100),label="equipmentPress"); Column(modifier.graphicsLayer { scaleX=scale; scaleY=scale }.border(1.dp,if(item==null) Color(0xFF496587) else Color(0xFFFFC857),RoundedCornerShape(11.dp)).background(Color(0xFF0B192C),RoundedCornerShape(11.dp)).clickable(interactionSource=source,indication=null,onClick=onClick).padding(8.dp),horizontalAlignment=Alignment.CenterHorizontally) { Icon(if(item==null) Icons.Default.AddCircle else Icons.Default.CheckCircle,null,Modifier.size(21.dp),tint=if(item==null) Color(0xFF7895BD) else Color(0xFFFFC857)); Text(label,maxLines=1,overflow=TextOverflow.Ellipsis,fontSize=10.sp,fontWeight=FontWeight.Bold); Text(item ?: "Vide",maxLines=1,overflow=TextOverflow.Ellipsis,fontSize=9.sp,color=if(item==null) Color(0xFF9FB1CD) else Color(0xFF8EE1A1)) } }
 @Composable private fun SkillsView(skills:List<SkillEntity>,detail:(SkillEntity)->Unit,validate:(SkillEntity)->Unit) = Page("Compétences","Accomplis tes actions pour devenir plus fort") { if(skills.isEmpty()) Text("Aucune compétence") else skills.forEach { s -> Card(Modifier.fillMaxWidth().padding(vertical=4.dp).clickable{detail(s)}) { Column(Modifier.padding(14.dp)) { Row(verticalAlignment=Alignment.CenterVertically){ RankBadge(s.rank); Column(Modifier.padding(start=10.dp).weight(1f)){Text(s.name,fontWeight=FontWeight.Bold);Text(s.kind.lowercase().replaceFirstChar{it.uppercase()},style=MaterialTheme.typography.labelSmall)}; IconButton({detail(s)}){Icon(Icons.Default.ChevronRight,null)} }; XpBar(s.xp,ProgressionRules.xpToNext(s.level,Rank.valueOf(s.rank))); Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Text("Niv. ${s.level} · +${s.rewardXp} XP",style=MaterialTheme.typography.labelMedium); Button({validate(s)}){Text("Valider")}} } } } }
 @Composable private fun DungeonsView(dungeons:List<DungeonEntity>, monsters:List<MonsterEntity>,fight:(MonsterEntity)->Unit) = Page("Donjons","Défis de la vie réelle, affrontements successifs") { dungeons.forEach { d -> HeroCard(d.name,"Difficulté ${d.difficulty} · Étape ${d.currentStep+1} · ${if(d.complete) "Terminé" else "Disponible"}",Icons.Default.Castle,Color(0xFFFF8A65)); Text(d.description); Spacer(Modifier.height(6.dp)); monsters.forEachIndexed{ index,m -> ListItem(headlineContent={Text("${index+1}. ${m.name}")},supportingContent={Text("PV ${m.hp}/${m.maxHp} · Rang ${m.rank}")},trailingContent={FilledTonalButton({fight(m)}){Text("Combattre")}}) } } }
 @Composable private fun BestiaryView(monsters:List<MonsterEntity>,detail:(MonsterEntity)->Unit) = Page("Bestiaire","Ennemis locaux administrables") { monsters.forEach { m -> Card(Modifier.fillMaxWidth().padding(vertical=4.dp).clickable{detail(m)}) { Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){ Icon(Icons.Default.Pets,null,Modifier.size(38.dp),tint=Color(0xFFFFC857)); Column(Modifier.weight(1f).padding(start=12.dp)){Text(m.name,fontWeight=FontWeight.Bold);Text("Rang ${m.rank} · niveau ${m.level} · ${m.hp}/${m.maxHp} PV")};Icon(Icons.Default.ChevronRight,null) } } } }
