@@ -27,12 +27,12 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort | tail -n 1)"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort | tail -n 1)"
           "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
-          "$AAPT" dump badging app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.gamilife.app'.*versionCode='2'.*versionName='0.1.1'"
+          "$AAPT" dump badging app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.gamilife.app'.*versionCode='3'.*versionName='0.1.2'"
       - name: Prepare standalone APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Gamilife-0.1.1.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Gamilife-0.1.2.apk
       - name: Publish APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Gamilife-0.1.1-apk
-          path: Gamilife-0.1.1.apk
+          name: Gamilife-0.1.2-apk
+          path: Gamilife-0.1.2.apk
           if-no-files-found: error

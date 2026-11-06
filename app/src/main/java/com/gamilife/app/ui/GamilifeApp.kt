@@ -43,8 +43,8 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
         if (screen == Screen.CHARACTER) {
             CharacterView(game, onNavigate = { screen = it }, onEquipment = { screen = Screen.EQUIPMENT })
         } else Scaffold(
-            topBar = { TopAppBar(title={ Column { Text("GAMILIFE",fontWeight=FontWeight.Black); Text("V0.1.1 · RPG de la vie réelle",style=MaterialTheme.typography.labelSmall) } }, actions={ IconButton({ screen=Screen.ADMIN }) { Icon(Icons.Default.Settings,"Administration") } }) },
-            bottomBar = { NavigationBar { listOf(Screen.CHARACTER,Screen.SKILLS,Screen.COMBAT,Screen.INVENTORY,Screen.BESTIARY).forEach { s -> NavigationBarItem(selected=screen==s,onClick={screen=s},icon={Icon(s.icon,null)},label={Text(s.label)} ) } } },
+            topBar = { TopAppBar(title={ Column { Text("GAMILIFE",fontWeight=FontWeight.Black); Text("V0.1.2 · RPG de la vie réelle",style=MaterialTheme.typography.labelSmall) } }, actions={ IconButton({ screen=Screen.ADMIN }) { Icon(Icons.Default.Settings,"Administration") } }) },
+            bottomBar = { GameNavigationBar(screen) { screen = it } },
             snackbarHost = { SnackbarHost(remember { SnackbarHostState() }) }
         ) { padding -> Box(Modifier.fillMaxSize().padding(padding)) {
         when(screen) {
@@ -61,9 +61,32 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
             Screen.ADMIN -> AdminView(game,{screen=Screen.EFFECTS},{vm.irregular(it.id)})
         }
         } }
+        if (screen == Screen.CHARACTER) Box(Modifier.align(Alignment.BottomCenter)) { GameNavigationBar(screen) { screen = it } }
         vm.message?.let { text -> AlertDialog(onDismissRequest=vm::dismiss,title={Text("Gamilife")},text={Text(text)},confirmButton={TextButton(vm::dismiss){Text("Compris")}}) }
         selectedSkill?.let { SkillDetail(it,onBack={selectedSkill=null},onValidate={vm.validate(it.id)}) }
         selectedMonster?.let { MonsterDetail(it,onBack={selectedMonster=null},onFight={screen=Screen.COMBAT; selectedMonster=it}) }
+    }
+}
+
+@Composable private fun GameNavigationBar(active: Screen, onNavigate: (Screen) -> Unit) {
+    val tabs = listOf(Screen.CHARACTER, Screen.SKILLS, Screen.DUNGEONS, Screen.INVENTORY, Screen.BESTIARY, Screen.COLLECTION, Screen.FORGE)
+    val visualActive = if (active == Screen.EQUIPMENT) Screen.INVENTORY else active
+    val activeIndex = tabs.indexOf(visualActive)
+    BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(1536f / 303f)) {
+        val tabWidth = maxWidth / 7
+        Image(
+            painter = painterResource(R.drawable.gamilife_navigation_reference),
+            contentDescription = "Navigation Gamilife",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.FillBounds
+        )
+        if (activeIndex > 0) {
+            Box(Modifier.width(tabWidth).fillMaxHeight().background(Color(0x8808101F)))
+            Box(Modifier.offset(x=tabWidth * activeIndex).width(tabWidth).fillMaxHeight().background(Color(0x55FFC857)))
+        }
+        tabs.forEachIndexed { index, destination ->
+            Box(Modifier.offset(x=tabWidth * index).width(tabWidth).fillMaxHeight().clickable { onNavigate(destination) })
+        }
     }
 }
 
