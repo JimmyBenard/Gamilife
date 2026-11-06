@@ -3,9 +3,14 @@
 package com.gamilife.app
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,7 +24,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -43,7 +50,7 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
         if (screen == Screen.CHARACTER) {
             CharacterView(game, onNavigate = { screen = it }, onEquipment = { screen = Screen.EQUIPMENT })
         } else Scaffold(
-            topBar = { TopAppBar(title={ Column { Text("GAMILIFE",fontWeight=FontWeight.Black); Text("V0.1.2 · RPG de la vie réelle",style=MaterialTheme.typography.labelSmall) } }, actions={ IconButton({ screen=Screen.ADMIN }) { Icon(Icons.Default.Settings,"Administration") } }) },
+            topBar = { TopAppBar(title={ Column { Text("GAMILIFE",fontWeight=FontWeight.Black); Text("V0.1.3 · RPG de la vie réelle",style=MaterialTheme.typography.labelSmall) } }, actions={ IconButton({ screen=Screen.ADMIN }) { Icon(Icons.Default.Settings,"Administration") } }) },
             bottomBar = { GameNavigationBar(screen) { screen = it } },
             snackbarHost = { SnackbarHost(remember { SnackbarHostState() }) }
         ) { padding -> Box(Modifier.fillMaxSize().padding(padding)) {
@@ -69,24 +76,44 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
 }
 
 @Composable private fun GameNavigationBar(active: Screen, onNavigate: (Screen) -> Unit) {
-    val tabs = listOf(Screen.CHARACTER, Screen.SKILLS, Screen.DUNGEONS, Screen.INVENTORY, Screen.BESTIARY, Screen.COLLECTION, Screen.FORGE)
+    val tabs = listOf(
+        Triple(Screen.CHARACTER, "Perso", Icons.Default.Person),
+        Triple(Screen.SKILLS, "Compét.", Icons.Default.AutoAwesome),
+        Triple(Screen.DUNGEONS, "Donjons", Icons.Default.Castle),
+        Triple(Screen.INVENTORY, "Sac", Icons.Default.Inventory2),
+        Triple(Screen.BESTIARY, "Bestiaire", Icons.Default.Pets),
+        Triple(Screen.COLLECTION, "Collection", Icons.Default.CollectionsBookmark),
+        Triple(Screen.FORGE, "Forge", Icons.Default.Build)
+    )
     val visualActive = if (active == Screen.EQUIPMENT) Screen.INVENTORY else active
-    val activeIndex = tabs.indexOf(visualActive)
-    BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(1536f / 303f)) {
-        val tabWidth = maxWidth / 7
-        Image(
-            painter = painterResource(R.drawable.gamilife_navigation_reference),
-            contentDescription = "Navigation Gamilife",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds
-        )
-        if (activeIndex > 0) {
-            Box(Modifier.width(tabWidth).fillMaxHeight().background(Color(0x8808101F)))
-            Box(Modifier.offset(x=tabWidth * activeIndex).width(tabWidth).fillMaxHeight().background(Color(0x55FFC857)))
+    Surface(color=Color(0xFF08111F), shadowElevation=12.dp) {
+        Row(Modifier.fillMaxWidth().height(78.dp).padding(horizontal=5.dp, vertical=6.dp), horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+            tabs.forEach { (destination, label, icon) ->
+                GamingNavigationItem(label, icon, destination == visualActive) { onNavigate(destination) }
+            }
         }
-        tabs.forEachIndexed { index, destination ->
-            Box(Modifier.offset(x=tabWidth * index).width(tabWidth).fillMaxHeight().clickable { onNavigate(destination) })
-        }
+    }
+}
+
+@Composable private fun RowScope.GamingNavigationItem(label:String, icon:androidx.compose.ui.graphics.vector.ImageVector, active:Boolean, onClick:()->Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) .90f else if (active) 1.035f else 1f, animationSpec=tween(110), label="navScale")
+    val glow by animateFloatAsState(if (active) 1f else 0f, animationSpec=tween(180), label="navGlow")
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        Modifier.weight(1f).fillMaxHeight().graphicsLayer { scaleX=scale; scaleY=scale; shadowElevation=if (active) 10f else 2f }
+            .clip(shape)
+            .background(if (active) Brush.verticalGradient(listOf(Color(0xFFFFE39A),Color(0xFFB97812),Color(0xFF5B3607))) else Brush.verticalGradient(listOf(Color(0xFF253A5B),Color(0xFF101B31))))
+            .border(1.dp, if (active) Color(0xFFFFF0B5) else Color(0xFF637CA7), shape)
+            .clickable(interactionSource=interaction, indication=null, onClick=onClick)
+            .padding(horizontal=2.dp, vertical=4.dp),
+        horizontalAlignment=Alignment.CenterHorizontally,
+        verticalArrangement=Arrangement.Center
+    ) {
+        if (active) Box(Modifier.width(22.dp).height(2.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFFFF3C8).copy(alpha=glow)))
+        Icon(icon, label, Modifier.size(25.dp), tint=if (active) Color(0xFF231704) else Color(0xFFC8D8F5))
+        Text(label, maxLines=1, overflow=TextOverflow.Ellipsis, color=if (active) Color(0xFF241704) else Color(0xFFE8F0FF), fontSize=8.sp, fontWeight=FontWeight.Bold, textAlign=TextAlign.Center)
     }
 }
 
