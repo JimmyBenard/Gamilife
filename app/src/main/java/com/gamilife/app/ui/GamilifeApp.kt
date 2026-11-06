@@ -40,7 +40,7 @@ import com.gamilife.app.domain.*
 val GamilifeColors = darkColorScheme(primary=Color(0xFFFFC857), secondary=Color(0xFF8BD3DD), tertiary=Color(0xFFC6A0F6), background=Color(0xFF111A29), surface=Color(0xFF1B2A41), surfaceVariant=Color(0xFF263A55), onPrimary=Color(0xFF17100A), onBackground=Color(0xFFF0F4FA), onSurface=Color(0xFFF0F4FA))
 
 private enum class Screen(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    CHARACTER("Personnage", Icons.Default.Person), SKILLS("Compétences",Icons.Default.AutoAwesome), DUNGEONS("Donjons",Icons.Default.Castle), BESTIARY("Bestiaire",Icons.Default.MenuBook), COMBAT("Combat",Icons.Default.SportsMartialArts), INVENTORY("Inventaire",Icons.Default.Inventory2), EQUIPMENT("Équipement",Icons.Default.Shield), EFFECTS("Effets",Icons.Default.Bolt), COLLECTION("Collection",Icons.Default.CollectionsBookmark), FORGE("Forge",Icons.Default.Build), ADMIN("Administration",Icons.Default.AdminPanelSettings)
+    CHARACTER("Personnage", Icons.Default.Person), SKILLS("Compétences",Icons.Default.AutoAwesome), DUNGEONS("Donjons",Icons.Default.Castle), BESTIARY("Bestiaire",Icons.Default.MenuBook), COMBAT("Combat",Icons.Default.SportsMartialArts), INVENTORY("Inventaire",Icons.Default.Inventory2), EQUIPMENT("Équipement",Icons.Default.Shield), EFFECTS("Effets",Icons.Default.Bolt), COLLECTION("Collection",Icons.Default.CollectionsBookmark), FORGE("Forge",Icons.Default.Build), SETTINGS("Paramètres",Icons.Default.Settings), ADMIN("Administration",Icons.Default.AdminPanelSettings)
 }
 
 @Composable fun GamilifeApp(game: GameSnapshot, vm: GameViewModel) {
@@ -50,7 +50,7 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
         if (screen == Screen.CHARACTER) {
             CharacterView(game, onNavigate = { screen = it }, onEquipment = { screen = Screen.EQUIPMENT })
         } else Scaffold(
-            topBar = { TopAppBar(title={ Column { Text("GAMILIFE",fontWeight=FontWeight.Black); Text("V0.1.3 · RPG de la vie réelle",style=MaterialTheme.typography.labelSmall) } }, actions={ IconButton({ screen=Screen.ADMIN }) { Icon(Icons.Default.Settings,"Administration") } }) },
+            topBar = { TopAppBar(title={ Column { Text("GAMILIFE",fontWeight=FontWeight.Black); Text("V0.1.4 · RPG de la vie réelle",style=MaterialTheme.typography.labelSmall) } }, actions={ IconButton({ screen=Screen.SETTINGS }) { Icon(Icons.Default.Settings,"Paramètres") } }) },
             bottomBar = { GameNavigationBar(screen) { screen = it } },
             snackbarHost = { SnackbarHost(remember { SnackbarHostState() }) }
         ) { padding -> Box(Modifier.fillMaxSize().padding(padding)) {
@@ -65,7 +65,8 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
             Screen.EFFECTS -> EffectsView(game.effects)
             Screen.COLLECTION -> CollectionView(game.items)
             Screen.FORGE -> ForgeView()
-            Screen.ADMIN -> AdminView(game,{screen=Screen.EFFECTS},{vm.irregular(it.id)})
+            Screen.SETTINGS -> SettingsView(vm.adminMode, vm::setAdminMode, { screen=Screen.ADMIN })
+            Screen.ADMIN -> if (vm.adminMode) AdminView(game,{screen=Screen.EFFECTS},{vm.irregular(it.id)},vm::updatePlayer) else SettingsView(vm.adminMode, vm::setAdminMode, { screen=Screen.ADMIN })
         }
         } }
         if (screen == Screen.CHARACTER) Box(Modifier.align(Alignment.BottomCenter)) { GameNavigationBar(screen) { screen = it } }
@@ -126,8 +127,12 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
     val xpPercent = p.xp * 100 / maxXp
     BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF101A2C))) {
         val boardWidth = maxWidth
-        val boardHeight = boardWidth * 1.5f
-        Box(Modifier.fillMaxWidth().height(boardHeight)) {
+        val boardHeight = boardWidth * 1.298f
+        var loaded by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { loaded = true }
+        val entryScale by animateFloatAsState(if (loaded) 1f else .965f, tween(420), label="characterEntry")
+        val entryAlpha by animateFloatAsState(if (loaded) 1f else 0f, tween(320), label="characterFade")
+        Box(Modifier.fillMaxWidth().height(boardHeight).graphicsLayer { scaleX=entryScale; scaleY=entryScale; alpha=entryAlpha }) {
             Image(
                 painter = painterResource(R.drawable.gamilife_character_reference),
                 contentDescription = "Fiche personnage Gamilife",
@@ -146,11 +151,8 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
             CharacterValue("—", Modifier.offset(x=boardWidth * .317f, y=boardHeight * .696f).width(boardWidth * .08f).height(boardHeight * .028f), 15.sp)
             CharacterValue("—", Modifier.offset(x=boardWidth * .317f, y=boardHeight * .739f).width(boardWidth * .08f).height(boardHeight * .028f), 15.sp)
             CharacterValue("—", Modifier.offset(x=boardWidth * .317f, y=boardHeight * .782f).width(boardWidth * .08f).height(boardHeight * .028f), 15.sp)
-            Box(Modifier.offset(x=boardWidth * .42f, y=boardHeight * .36f).width(boardWidth * .55f).height(boardHeight * .49f).clickable(onClick=onEquipment))
-            listOf(Screen.CHARACTER,Screen.SKILLS,Screen.DUNGEONS,Screen.INVENTORY,Screen.BESTIARY,Screen.COLLECTION,Screen.FORGE).forEachIndexed { index, target ->
-                Box(Modifier.offset(x=boardWidth * (.015f + index * .14f), y=boardHeight * .884f).width(boardWidth * .135f).height(boardHeight * .105f).clickable { onNavigate(target) })
-            }
-            Box(Modifier.offset(x=boardWidth * .905f, y=boardHeight * .022f).width(boardWidth * .075f).height(boardHeight * .065f).clickable { onNavigate(Screen.ADMIN) })
+            Box(Modifier.offset(x=boardWidth * .42f, y=boardHeight * .36f).width(boardWidth * .55f).height(boardHeight * .57f).clickable(onClick=onEquipment))
+            Box(Modifier.offset(x=boardWidth * .905f, y=boardHeight * .022f).width(boardWidth * .075f).height(boardHeight * .065f).clickable { onNavigate(Screen.SETTINGS) })
         }
     }
 }
@@ -166,7 +168,37 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
 @Composable private fun EffectsView(effects:List<EffectEntity>) = Page("Effets","Fenêtre des bons effets (BE) et mauvais effets (ME)") { effects.forEach { e -> Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){AssistChip(onClick={},label={Text(e.type)},colors=AssistChipDefaults.assistChipColors(labelColor=if(e.type=="BE")Color(0xFF7DDC8C) else Color(0xFFFF8A80)));Column(Modifier.padding(start=10.dp)){Text(e.name,fontWeight=FontWeight.Bold);Text(e.description);Text("${if(e.active) "Actif" else "Inactif"} · ${e.turns} tour(s) · ${e.stat}",style=MaterialTheme.typography.labelSmall)}}} }}
 @Composable private fun CollectionView(items:List<ItemEntity>) = Page("Collection","Éléments découverts et récompenses") { Text("${items.size} objets connus"); items.forEach{ ItemLine(it) } }
 @Composable private fun ForgeView() = Page("Forge","Socle persistant prêt pour les prochaines règles") { HeroCard("Forge V0.1.0","Préparation d’amélioration d’équipement. Aucune économie fictive n’est simulée.",Icons.Default.Build,Color(0xFFFFC857));Text("Dans une version suivante, les recettes, matériaux et probabilités seront administrables.") }
-@Composable private fun AdminView(g:GameSnapshot,effects:()->Unit,irregular:(SkillEntity)->Unit) = Page("Administration","Les démonstrations sont des données locales modifiables") { HeroCard("Contrôle des données","Room / SQLite · toutes les modifications de cette V0.1.0 sont persistantes",Icons.Default.AdminPanelSettings,Color(0xFFC6A0F6)); Section("Données administrables") { Text("Personnage, compétences, rangs, XP, CAR, monstres, donjons, équipements, objets, effets et coefficients constituent le socle local."); Button(effects){Text("Gérer les effets")}}; Section("Tester une irrégularité") { g.skills.forEach{ s -> OutlinedButton({irregular(s)},Modifier.fillMaxWidth().padding(vertical=3.dp)){Text("Appliquer ${s.irregularity} : ${s.name}")} } }; Section("Historique persistant") { g.history.take(10).forEach{ Text("${it.title} — ${it.details}",style=MaterialTheme.typography.bodySmall,modifier=Modifier.padding(vertical=3.dp)) } } }
+@Composable private fun SettingsView(adminMode:Boolean,onModeChange:(Boolean)->Unit,openAdmin:()->Unit) = Page("Paramètres","Contrôle local de Gamilife") {
+    HeroCard("Mode administrateur","Déverrouille l’édition directe et persistante des données du personnage.",Icons.Default.AdminPanelSettings,Color(0xFFC6A0F6))
+    Section("Accès administrateur") {
+        Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Mode administrateur",fontWeight=FontWeight.Bold); Text(if(adminMode) "Actif : les contrôles d’édition sont disponibles." else "Désactivé : protège les données de jeu.",style=MaterialTheme.typography.bodySmall) }; Switch(adminMode,onModeChange) }
+        if(adminMode) Button(openAdmin,Modifier.fillMaxWidth().padding(top=10.dp)) { Icon(Icons.Default.Edit,null); Spacer(Modifier.width(8.dp)); Text("Ouvrir l’administration") }
+    }
+    Section("Données locales") { Text("Les réglages et les modifications sont enregistrés sur cet appareil, même après fermeture de l’application.") }
+}
+
+@Composable private fun AdminView(g:GameSnapshot,effects:()->Unit,irregular:(SkillEntity)->Unit,savePlayer:(PlayerEntity)->Unit) {
+    val p=g.player ?: return Loading()
+    var name by remember(p.name) { mutableStateOf(p.name) }; var level by remember(p.level) { mutableStateOf(p.level.toString()) }; var rank by remember(p.rank) { mutableStateOf(p.rank) }
+    var xp by remember(p.xp) { mutableStateOf(p.xp.toString()) }; var hp by remember(p.hp) { mutableStateOf(p.hp.toString()) }; var maxHp by remember(p.maxHp) { mutableStateOf(p.maxHp.toString()) }
+    var atk by remember(p.atk) { mutableStateOf(p.atk.toString()) }; var crit by remember(p.crit) { mutableStateOf(p.crit.toString()) }; var critDamage by remember(p.critDamage) { mutableStateOf(p.critDamage.toString()) }; var accuracy by remember(p.accuracy) { mutableStateOf(p.accuracy.toString()) }; var ame by remember(p.ame) { mutableStateOf(p.ame.toString()) }; var rme by remember(p.rme) { mutableStateOf(p.rme.toString()) }
+    fun n(value:String, fallback:Int)=value.toIntOrNull() ?: fallback
+    Page("Administration","Édition persistante des données de jeu") {
+        HeroCard("Contrôle administrateur","Les valeurs saisies sont validées puis enregistrées dans la base locale.",Icons.Default.AdminPanelSettings,Color(0xFFC6A0F6))
+        Section("Fiche personnage") {
+            OutlinedTextField(name,{name=it},label={Text("Pseudonyme")},singleLine=true,modifier=Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) { OutlinedTextField(level,{level=it},label={Text("Niveau")},singleLine=true,modifier=Modifier.weight(1f)); OutlinedTextField(rank,{rank=it.uppercase().take(1)},label={Text("Rang F–S")},singleLine=true,modifier=Modifier.weight(1f)) }
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) { OutlinedTextField(xp,{xp=it},label={Text("EXP")},singleLine=true,modifier=Modifier.weight(1f)); OutlinedTextField(hp,{hp=it},label={Text("PV actuels")},singleLine=true,modifier=Modifier.weight(1f)); OutlinedTextField(maxHp,{maxHp=it},label={Text("PV max")},singleLine=true,modifier=Modifier.weight(1f)) }
+            OutlinedTextField(atk,{atk=it},label={Text("ATK")},singleLine=true,modifier=Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) { OutlinedTextField(crit,{crit=it},label={Text("CC %")},singleLine=true,modifier=Modifier.weight(1f)); OutlinedTextField(critDamage,{critDamage=it},label={Text("DC %")},singleLine=true,modifier=Modifier.weight(1f)); OutlinedTextField(accuracy,{accuracy=it},label={Text("PRE %")},singleLine=true,modifier=Modifier.weight(1f)) }
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) { OutlinedTextField(ame,{ame=it},label={Text("AME %")},singleLine=true,modifier=Modifier.weight(1f)); OutlinedTextField(rme,{rme=it},label={Text("RME %")},singleLine=true,modifier=Modifier.weight(1f)) }
+            Button({savePlayer(p.copy(name=name,level=n(level,p.level),rank=rank,xp=n(xp,p.xp),hp=n(hp,p.hp),maxHp=n(maxHp,p.maxHp),atk=n(atk,p.atk),crit=n(crit,p.crit),critDamage=n(critDamage,p.critDamage),accuracy=n(accuracy,p.accuracy),ame=n(ame,p.ame),rme=n(rme,p.rme)))},Modifier.fillMaxWidth().padding(top=10.dp)){Icon(Icons.Default.Save,null);Spacer(Modifier.width(8.dp));Text("Enregistrer le profil")}
+        }
+        Section("Règles et effets") { Text("Les règles d’irrégularité et les effets actifs restent accessibles pour vérification."); Button(effects){Text("Voir les effets")}}
+        Section("Tester une irrégularité") { g.skills.forEach{ s -> OutlinedButton({irregular(s)},Modifier.fillMaxWidth().padding(vertical=3.dp)){Text("Appliquer ${s.irregularity} : ${s.name}")} } }
+        Section("Historique persistant") { g.history.take(10).forEach{ Text("${it.title} — ${it.details}",style=MaterialTheme.typography.bodySmall,modifier=Modifier.padding(vertical=3.dp)) } }
+    }
+}
 
 @Composable private fun SkillDetail(s:SkillEntity,onBack:()->Unit,onValidate:()->Unit) = DetailSheet("Détail d’une compétence",onBack) { RankBadge(s.rank); Text(s.name,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text(s.description);Section("Progression"){Text("Niveau ${s.level} · ${s.xp}/${ProgressionRules.xpToNext(s.level,Rank.valueOf(s.rank))} XP");XpBar(s.xp,ProgressionRules.xpToNext(s.level,Rank.valueOf(s.rank)))};Section("Règles"){Text("Catégorie : ${s.kind}");Text("Fréquence : toutes les ${s.cooldownHours} h");Text("Irrégularité : ${s.irregularity}");Text("Puissance : ×${s.power}")};Button(onValidate,Modifier.fillMaxWidth()){Text("Valider l’action réelle")}}
 @Composable private fun MonsterDetail(m:MonsterEntity,onBack:()->Unit,onFight:()->Unit) = DetailSheet("Détail d’un monstre",onBack){RankBadge(m.rank);Text(m.name,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text(m.description);HpBar(m.hp,m.maxHp);Section("Statistiques"){Text("Niveau ${m.level} · ATK ${m.atk}");Text("Dégâts ${m.minDamage}–${m.maxDamage} · RME ${m.rme}");Text("Récompense : ${m.rewardItem}")};Button(onFight,Modifier.fillMaxWidth()){Text("Lancer le combat")}}

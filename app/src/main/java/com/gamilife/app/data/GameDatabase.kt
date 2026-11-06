@@ -56,8 +56,11 @@ abstract class GameDatabase : RoomDatabase() { abstract fun dao(): GameDao
 
 data class GameSnapshot(val player: PlayerEntity?, val skills: List<SkillEntity>, val items: List<ItemEntity>, val monsters: List<MonsterEntity>, val effects: List<EffectEntity>, val dungeons: List<DungeonEntity>, val history: List<HistoryEntity>)
 
-class GameRepository(private val db: GameDatabase) {
+class GameRepository(private val db: GameDatabase, context: Context) {
     private val dao = db.dao()
+    private val preferences = context.applicationContext.getSharedPreferences("gamilife_settings", Context.MODE_PRIVATE)
+    fun isAdminMode(): Boolean = preferences.getBoolean("admin_mode", false)
+    fun setAdminMode(enabled: Boolean) { preferences.edit().putBoolean("admin_mode", enabled).apply() }
     private data class Primary(val player: PlayerEntity?, val skills: List<SkillEntity>, val items: List<ItemEntity>, val monsters: List<MonsterEntity>, val effects: List<EffectEntity>)
     val state: Flow<GameSnapshot> = kotlinx.coroutines.flow.combine(dao.playerFlow(), dao.skillsFlow(), dao.itemsFlow(), dao.monstersFlow(), dao.effectsFlow()) { p, s, i, m, e -> Primary(p,s,i,m,e) }
         .let { primary -> kotlinx.coroutines.flow.combine(primary, dao.dungeonsFlow(), dao.historyFlow()) { first, d, h -> GameSnapshot(first.player,first.skills,first.items,first.monsters,first.effects,d,h) } }
@@ -81,6 +84,21 @@ class GameRepository(private val db: GameDatabase) {
         val item = dao.item(itemId) ?: return@withTransaction "Objet introuvable"
         if (item.slot == null) return@withTransaction "Cet objet ne peut pas être équipé"
         dao.unequipSlot(item.slot); dao.putItem(item.copy(equipped = true)); dao.addHistory(HistoryEntity(createdAt=System.currentTimeMillis(), title="Équipement", details="${item.name} équipé.")); "${item.name} équipé"
+    }
+    suspend fun updatePlayer(value: PlayerEntity): String = db.withTransaction {
+        val maxHp = value.maxHp.coerceAtLeast(1)
+        val safe = value.copy(
+            name = value.name.trim().ifBlank { "Aventurier" },
+            level = value.level.coerceAtLeast(1),
+            rank = value.rank.takeIf { it in setOf("F", "E", "D", "C", "B", "A", "S") } ?: "F",
+            xp = value.xp.coerceAtLeast(0), hp = value.hp.coerceIn(0, maxHp), maxHp = maxHp,
+            atk = value.atk.coerceAtLeast(0), crit = value.crit.coerceIn(0, 100),
+            critDamage = value.critDamage.coerceAtLeast(0), accuracy = value.accuracy.coerceIn(0, 100),
+            ame = value.ame.coerceIn(0, 100), rme = value.rme.coerceIn(0, 100)
+        )
+        dao.putPlayer(safe)
+        dao.addHistory(HistoryEntity(createdAt=System.currentTimeMillis(), title="Administration", details="Profil personnage modifié."))
+        "Profil administrateur enregistré"
     }
     suspend fun validateSkill(id: Long, now: Long): String = db.withTransaction {
         val skill = dao.skill(id) ?: return@withTransaction "Compétence introuvable"
