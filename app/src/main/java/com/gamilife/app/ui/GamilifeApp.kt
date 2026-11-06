@@ -65,8 +65,8 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
             Screen.EFFECTS -> EffectsView(game.effects)
             Screen.COLLECTION -> CollectionView(game.items)
             Screen.FORGE -> ForgeView()
-            Screen.SETTINGS -> SettingsView(vm.adminMode, vm::setAdminMode, { screen=Screen.ADMIN })
-            Screen.ADMIN -> if (vm.adminMode) AdminView(game,{screen=Screen.EFFECTS},{vm.irregular(it.id)},vm::updatePlayer) else SettingsView(vm.adminMode, vm::setAdminMode, { screen=Screen.ADMIN })
+            Screen.SETTINGS -> SettingsView(vm.adminMode, vm::updateAdminMode, { screen=Screen.ADMIN })
+            Screen.ADMIN -> if (vm.adminMode) AdminView(game,{screen=Screen.EFFECTS},{vm.irregular(it.id)},vm::updatePlayer) else SettingsView(vm.adminMode, vm::updateAdminMode, { screen=Screen.ADMIN })
         }
         } }
         if (screen == Screen.CHARACTER) Box(Modifier.align(Alignment.BottomCenter)) { GameNavigationBar(screen) { screen = it } }

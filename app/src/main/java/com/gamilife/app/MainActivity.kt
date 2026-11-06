@@ -24,7 +24,7 @@ class GameViewModel(private val repository: GameRepository) : ViewModel() {
     fun validate(id: Long) = viewModelScope.launch { message = repository.validateSkill(id,System.currentTimeMillis()) }
     fun irregular(id: Long) = viewModelScope.launch { message = repository.applyIrregularity(id) }
     fun fight(skill: Long, monster: Long) = viewModelScope.launch { message = repository.fight(skill,monster)?.log ?: "Combat impossible" }
-    fun setAdminMode(enabled: Boolean) { repository.setAdminMode(enabled); adminMode = enabled; message = if (enabled) "Mode administrateur activé" else "Mode administrateur désactivé" }
+    fun updateAdminMode(enabled: Boolean) { repository.setAdminMode(enabled); adminMode = enabled; message = if (enabled) "Mode administrateur activé" else "Mode administrateur désactivé" }
     fun updatePlayer(value: PlayerEntity) = viewModelScope.launch { message = repository.updatePlayer(value) }
 }
 
